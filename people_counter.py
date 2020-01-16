@@ -79,8 +79,7 @@ trackableObjects = {}
 # initialize the total number of frames processed thus far, along
 # with the total number of objects that have moved either up or down
 totalFrames = 0
-totalDown = 0
-totalUp = 0
+totalCounted = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
@@ -191,7 +190,6 @@ while True:
     # draw a horizontal line in the center of the frame -- once an
     # object crosses this line we will determine whether they were
     # moving 'up' or 'down'
-    cv2.line(frame, (0, H//2), (W, H//2), (0, 255, 255), 1)
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
@@ -220,19 +218,8 @@ while True:
 
             # check to see if the object has been counted or not
             if not to.counted:
-                # if the direction is negative (indicating the object
-                # is moving up) AND the centroid is above the center
-                # line, count the object //
-                if direction < 0 and centroid[1] < H // 2:
-                    totalUp += 1
-                    to.counted = True
-
-                # if the direction is positive (indicating the object
-                # is moving down) AND the centroid is below the
-                # center line, count the object //
-                elif direction > 0 and centroid[1] > H // 2:
-                    totalDown += 1
-                    to.counted = True
+                totalCounted += 1
+                to.counted = True
 
         # store the trackable object in our dictionary
         trackableObjects[objectID] = to
@@ -243,13 +230,10 @@ while True:
         cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         cv2.circle(frame, (centroid[0], centroid[1]), 3, (0, 255, 0), -1)
+        cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
     # construct a tuple of information we will be displaying on the
     # frame
-    info = [
-        ("Up", totalUp),
-        ("Down", totalDown),
-        ("Status", status),
-    ]
+    info = [("Total", totalCounted), ("Status", status)]
 
     # loop over the info tuples and draw them on our frame
     for (i, (k, v)) in enumerate(info):

@@ -56,7 +56,7 @@ class CentroidTracker:
 			return self.objects
 
 		# initialize an array of input centroids for the current frame
-		inputCentroids = np.zeros((len(rects), 2), dtype="int")
+		inputCentroids = np.zeros((len(rects), 2), dtype="int64")
 
 		# loop over the bounding box rectangles
 		for (i, (startX, startY, endX, endY)) in enumerate(rects):

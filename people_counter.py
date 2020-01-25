@@ -31,8 +31,6 @@ ap.add_argument("-i", "--input", type=str,
                 help="path to optional input video file")
 ap.add_argument("-o", "--output", type=str,
                 help="path to optional output video file")
-ap.add_argument("-y", "--yolo",
-                help="base path to YOLO directory")
 ap.add_argument("-c", "--confidence", type=float, default=0.5,
                 help="minimum probability to filter weak detections")
 ap.add_argument("-s", "--skip-frames", type=int, default=30,
@@ -80,6 +78,7 @@ trackableObjects = {}
 # with the total number of objects that have moved either up or down
 totalFrames = 0
 totalCounted = 0
+currentCounted = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
@@ -99,7 +98,7 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-    frame = imutils.resize(frame, width=400)
+    frame = imutils.resize(frame, width=500)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # if the frame dimensions are empty, set them
@@ -163,13 +162,13 @@ while True:
 
                 # add the tracker to our list of trackers so we can
                 # utilize it during skip frames
-                trackers.append(tracker)
+                trackers.append((tracker, confidence))
 
     # otherwise, we should utilize our object *trackers* rather than
     # object *detectors* to obtain a higher frame processing throughput
     else:
         # loop over the trackers
-        for tracker in trackers:
+        for tracker, confidence in trackers:
             # set the status of our system to be 'tracking' rather
             # than 'waiting' or 'detecting'
             status = "Tracking"
@@ -186,10 +185,6 @@ while True:
 
             # add the bounding box coordinates to the rectangles list
             rects.append((startX, startY, endX, endY))
-
-    # draw a horizontal line in the center of the frame -- once an
-    # object crosses this line we will determine whether they were
-    # moving 'up' or 'down'
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
@@ -208,38 +203,36 @@ while True:
         # otherwise, there is a trackable object so we can utilize it
         # to determine direction
         else:
-            # the difference between the y-coordinate of the *current*
-            # centroid and the mean of *previous* centroids will tell
-            # us in which direction the object is moving (negative for
-            # 'up' and positive for 'down')
-            y = [c[1] for c in to.centroids]
-            direction = centroid[1] - np.mean(y)
             to.centroids.append(centroid)
 
             # check to see if the object has been counted or not
             if not to.counted:
                 totalCounted += 1
                 to.counted = True
+        currentCounted = len(objects.items())
 
         # store the trackable object in our dictionary
         trackableObjects[objectID] = to
 
         # draw both the ID of the object and the centroid of the
         # object on the output frame
-        text = "ID {}".format(objectID)
+        text = "id{} {:.2%}".format(objectID, confidence)
         cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.circle(frame, (centroid[0], centroid[1]), 3, (0, 255, 0), -1)
-        cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.circle(frame, (centroid[0], centroid[1]), 3, (0, 255, 255), -1)
+        # height and weight of bounding box
+        hw = 50
+        cv2.rectangle(frame, (centroid[0] - hw, centroid[1] - hw), (centroid[0] + hw, centroid[1] + hw),
+                      (0, 255, 255), 3)
     # construct a tuple of information we will be displaying on the
     # frame
-    info = [("Total", totalCounted), ("Status", status)]
+    info = [("Total", totalCounted), ("Current", currentCounted), ("Status", status)]
 
     # loop over the info tuples and draw them on our frame
     for (i, (k, v)) in enumerate(info):
         text = "{}: {}".format(k, v)
         cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     # check to see if we should write the frame to disk
     if writer is not None:
@@ -256,6 +249,7 @@ while True:
     # increment the total number of frames processed thus far and
     # then update the FPS counter
     totalFrames += 1
+    currentCounted = 0
     fps.update()
 
 # stop the timer and display FPS information
